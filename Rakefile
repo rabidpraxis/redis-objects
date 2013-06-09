@@ -10,6 +10,7 @@ begin
     gem.email = "nwiger@gmail.com"
     gem.homepage = "http://github.com/nateware/redis-objects"
     gem.authors = ["Nate Wiger"]
+    gem.add_dependency 'connection_pool'
     gem.add_development_dependency "bacon", ">= 0"
     gem.add_development_dependency "redis-namespace", ">= 1.2.0"
     #gem.requirements << 'redis, v3.0.2 or greater'

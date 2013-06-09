@@ -15,7 +15,7 @@ class Redis
     attr_reader :key, :options
     def initialize(key, *args)
       super
-      @options[:marshal_keys] ||= {} 
+      @options[:marshal_keys] ||= {}
     end
 
     # Needed since Redis::Hash masks bare Hash in redis.rb
@@ -35,17 +35,17 @@ class Redis
 
     # Redis: HSET
     def store(field, value)
-      redis.hset(key, field, to_redis(value, options[:marshal_keys][field]))
+      redis_proxy.rcmd(:hset, key, field, to_redis(value, options[:marshal_keys][field]))
     end
 
     # Redis: HGET
     def fetch(field)
-      from_redis redis.hget(key, field), options[:marshal_keys][field]
+      from_redis redis_proxy.rcmd(:hget, key, field), options[:marshal_keys][field]
     end
 
     # Verify that a field exists. Redis: HEXISTS
     def has_key?(field)
-      redis.hexists(key, field)
+      redis_proxy.rcmd(:hexists, key, field)
     end
     alias_method :include?, :has_key?
     alias_method :key?, :has_key?
@@ -53,23 +53,23 @@ class Redis
 
     # Delete field. Redis: HDEL
     def delete(field)
-      redis.hdel(key, field)
+      redis_proxy.rcmd(:hdel, key, field)
     end
 
     # Return all the keys of the hash. Redis: HKEYS
     def keys
-      redis.hkeys(key)
+      redis_proxy.rcmd(:hkeys, key)
     end
 
     # Return all the values of the hash. Redis: HVALS
     def values
-      from_redis redis.hvals(key)
+      from_redis redis_proxy.rcmd(:hvals, key)
     end
     alias_method :vals, :values
 
     # Retrieve the entire hash.  Redis: HGETALL
     def all
-      h = redis.hgetall(key) || {}
+      h = redis_proxy.rcmd(:hgetall, key) || {}
       h.each { |k,v| h[k] = from_redis(v, options[:marshal_keys][k]) }
       h
     end
@@ -92,7 +92,7 @@ class Redis
 
     # Return the size of the dict. Redis: HLEN
     def size
-      redis.hlen(key)
+      redis_proxy.rcmd(:hlen, key)
     end
     alias_method :length, :size
     alias_method :count, :size
@@ -104,13 +104,13 @@ class Redis
 
     # Clears the dict of all keys/values. Redis: DEL
     def clear
-      redis.del(key)
+      redis_proxy.rcmd(:del, key)
     end
 
     # Set keys in bulk, takes a hash of field/values {'field1' => 'val1'}. Redis: HMSET
     def bulk_set(*args)
       raise ArgumentError, "Argument to bulk_set must be hash of key/value pairs" unless args.last.is_a?(::Hash)
-      redis.hmset(key, *args.last.inject([]){ |arr,kv|
+      redis_proxy.rcmd(:hmset, key, *args.last.inject([]){ |arr,kv|
         arr + [kv[0], to_redis(kv[1], options[:marshal_keys][kv[0]])]
       })
     end
@@ -120,14 +120,14 @@ class Redis
     def fill(pairs={})
       raise ArgumentErorr, "Arugment to fill must be a hash of key/value pairs" unless pairs.is_a?(::Hash)
       pairs.each do |field, value|
-        redis.hsetnx(key, field, to_redis(value, options[:marshal_keys][field]))
+        redis_proxy.rcmd(:hsetnx, key, field, to_redis(value, options[:marshal_keys][field]))
       end
     end
 
     # Get keys in bulk, takes an array of fields as arguments. Redis: HMGET
     def bulk_get(*fields)
       hsh = {}
-      res = redis.hmget(key, *fields.flatten)
+      res = redis_proxy.rcmd(:hmget, key, *fields.flatten)
       fields.each do |k|
         hsh[k] = from_redis(res.shift, options[:marshal_keys][k])
       end
@@ -137,13 +137,13 @@ class Redis
     # Get values in bulk, takes an array of keys as arguments.
     # Values are returned in a collection in the same order than their keys in *keys Redis: HMGET
     def bulk_values(*keys)
-      res = redis.hmget(key, *keys.flatten)
+      res = redis_proxy.rcmd(:hmget, key, *keys.flatten)
       keys.inject([]){|collection, k| collection << from_redis(res.shift)}
     end
 
     # Increment value by integer at field. Redis: HINCRBY
     def incrby(field, val = 1)
-      ret = redis.hincrby(key, field, val)
+      ret = redis_proxy.rcmd(:hincrby, key, field, val)
       unless ret.is_a? Array
         ret.to_i
       else

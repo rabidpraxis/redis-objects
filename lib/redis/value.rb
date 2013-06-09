@@ -13,20 +13,20 @@ class Redis
     attr_reader :key, :options
     def initialize(key, *args)
       super(key, *args)
-      redis.setnx(key, to_redis(@options[:default])) if @options[:default]
+      redis_proxy.rcmd(:setnx, key, to_redis(@options[:default])) if @options[:default]
     end
 
     def value=(val)
       if val.nil?
         delete
       else
-        redis.set key, to_redis(val)
+        redis_proxy.rcmd(:set, key, to_redis(val))
       end
     end
     alias_method :set, :value=
 
     def value
-      from_redis redis.get(key)
+      from_redis redis_proxy.rcmd(:get, key)
     end
     alias_method :get, :value
 

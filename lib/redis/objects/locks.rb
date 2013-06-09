@@ -53,7 +53,7 @@ class Redis
         # stale locks (a stale lock should only happen if a server crashes.)
         def clear_lock(name, id)
           verify_lock_defined!(name)
-          redis.del(redis_field_key("#{name}_lock", id))
+          redis_proxy.rcmd(:del, redis_field_key("#{name}_lock", id))
         end
 
         private

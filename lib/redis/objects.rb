@@ -1,9 +1,10 @@
 # Redis::Objects - Lightweight object layer around redis-rb
 # See README.rdoc for usage and approach.
 require 'redis'
+require 'redis/client'
+
 
 class Redis
-  autoload :Counter,   'redis/counter'
   autoload :List,      'redis/list'
   autoload :Lock,      'redis/lock'
   autoload :Set,       'redis/set'
@@ -54,6 +55,7 @@ class Redis
     autoload :SortedSets, 'redis/objects/sorted_sets'
     autoload :Values,     'redis/objects/values'
     autoload :Hashes,     'redis/objects/hashes'
+    autoload :Config,     'redis/config'
 
     class NotConnected < StandardError; end
     class NilObjectId  < StandardError; end
@@ -70,6 +72,7 @@ class Redis
       def included(klass)
         # Core (this file)
         klass.instance_variable_set('@redis', nil)
+        klass.instance_variable_set('@redis_proxy', @proxy)
         klass.instance_variable_set('@redis_objects', {})
         klass.send :include, InstanceMethods
         klass.extend ClassMethods
@@ -82,6 +85,7 @@ class Redis
         klass.send :include, Redis::Objects::SortedSets
         klass.send :include, Redis::Objects::Values
         klass.send :include, Redis::Objects::Hashes
+        klass.send :include, Redis::Objects::Config
       end
     end
 
@@ -97,6 +101,10 @@ class Redis
       attr_writer :redis_objects
       def redis_objects
         @redis_objects ||= {}
+      end
+
+      def redis_proxy
+        ConnectionPoolProxy.new(redis, true)
       end
 
       # Set the Redis redis_prefix to use. Defaults to model_name

@@ -16,7 +16,7 @@ class Redis
     def initialize(key, *args)
       super(key, *args)
       @options[:start] ||= 0
-      redis.setnx(key, @options[:start]) unless @options[:start] == 0 || @options[:init] === false
+      redis_proxy.rcmd(:setnx, key, @options[:start]) unless @options[:start] == 0 || @options[:init] === false
     end
 
     # Reset the counter to its starting value.  Not atomic, so use with care.
@@ -24,7 +24,7 @@ class Redis
     # with a parent and starting over (for example, restarting a game and
     # disconnecting all players).
     def reset(to=options[:start])
-      redis.set key, to.to_i
+      redis_proxy.rcmd(:set, key, to.to_i)
       true  # hack for redis-rb regression
     end
 
@@ -33,7 +33,7 @@ class Redis
     # atomic in that no increments or decrements are lost if you process
     # the returned value.
     def getset(to=options[:start])
-      redis.getset(key, to.to_i).to_i
+      redis_proxy.rcmd(:getset, key, to.to_i).to_i
     end
 
     # Returns the current value of the counter.  Normally just calling the
@@ -41,7 +41,7 @@ class Redis
     # or decrement is called.  This forces a network call to redis-server
     # to get the current value.
     def value
-      redis.get(key).to_i
+      redis_proxy.rcmd(:get, key).to_i
     end
     alias_method :get, :value
 
@@ -51,7 +51,7 @@ class Redis
     # counter will automatically be decremented to its previous value.  This
     # method is aliased as incr() for brevity.
     def increment(by=1, &block)
-      val = redis.incrby(key, by).to_i
+      val = redis_proxy.rcmd(:incrby, key, by).to_i
       block_given? ? rewindable_block(:decrement, by, val, &block) : val
     end
     alias_method :incr, :increment
@@ -62,7 +62,7 @@ class Redis
     # counter will automatically be incremented to its previous value.  This
     # method is aliased as decr() for brevity.
     def decrement(by=1, &block)
-      val = redis.decrby(key, by).to_i
+      val = redis_proxy.rcmd(:decrby, key, by).to_i
       block_given? ? rewindable_block(:increment, by, val, &block) : val
     end
     alias_method :decr, :decrement
@@ -81,7 +81,7 @@ class Redis
         end
       EndOverload
     end
-   
+
     private
 
     # Implements atomic increment/decrement blocks

@@ -16,13 +16,13 @@ class Redis
       super(key, *args)
       @options[:timeout] ||= 5
       @options[:init] = false if @options[:init].nil? # default :init to false
-      redis.setnx(key, @options[:start]) unless @options[:start] == 0 || @options[:init] === false
+      redis_proxy.rcmd(:setnx, key, @options[:start]) unless @options[:start] == 0 || @options[:init] === false
     end
 
     # Clear the lock.  Should only be needed if there's a server crash
     # or some other event that gets locks in a stuck state.
     def clear
-      redis.del(key)
+      redis_proxy.rcmd(:del, key)
     end
     alias_method :delete, :clear
 
@@ -36,19 +36,19 @@ class Redis
       while Time.now - start < @options[:timeout]
         expiration = generate_expiration
         # Use the expiration as the value of the lock.
-        gotit = redis.setnx(key, expiration)
+        gotit = redis_proxy.rcmd(:setnx, key, expiration)
         break if gotit
 
         # Lock is being held.  Now check to see if it's expired (if we're using
         # lock expiration).
         # See "Handling Deadlocks" section on http://redis.io/commands/setnx
         if !@options[:expiration].nil?
-          old_expiration = redis.get(key).to_f
+          old_expiration = redis_proxy.rcmd(:get, key).to_f
 
           if old_expiration < Time.now.to_f
             # If it's expired, use GETSET to update it.
             expiration = generate_expiration
-            old_expiration = redis.getset(key, expiration).to_f
+            old_expiration = redis_proxy.rcmd(:getset, key, expiration).to_f
 
             # Since GETSET returns the old value of the lock, if the old expiration
             # is still in the past, we know no one else has expired the locked
@@ -72,7 +72,7 @@ class Redis
         # wrote the lock key and only delete it if it hasn't expired (or we're not using
         # lock expiration)
         if @options[:expiration].nil? || expiration > Time.now.to_f
-          redis.del(key)
+          redis_proxy.rcmd(:del, key)
         end
       end
     end
